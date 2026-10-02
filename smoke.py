@@ -29,6 +29,25 @@ def main() -> None:
     assert m["ok"]
     print(f"match   score={m['data']['score']}")
 
+    aff = c.post(
+        "/docs/affidavit",
+        json={
+            "deceasedName": "Ramesh Sharma",
+            "applicantName": "Priya Sharma",
+            "relationship": "Spouse",
+            "familyTree": [],
+        },
+    ).json()
+    assert aff["ok"] and aff["data"]["affidavitText"]
+    print(f"affid   {len(aff['data']['checklist'])} checklist steps")
+
+    ocr = c.post(
+        "/docs/ocr",
+        files={"kyc": ("k.png", b"\x89PNG\r\n\x1a\n", "image/png"), "cert": ("c.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+    ).json()
+    assert ocr["ok"] and "kycName" in ocr["data"]
+    print(f"ocr     match={ocr['data']['isMatch']}")
+
     assert c.get("/data/rules").json()["ok"]
     assert c.get("/data/brokers", params={"name": "groww"}).json()["ok"]
     assert c.get("/data/nodal", params={"company": "Infosys"}).json()["ok"]

@@ -1,11 +1,12 @@
 """Extension-compatible passthrough routes.
 
-The Chrome extension "Saathi" (Team A) posts to these exact paths and expects
-these exact response shapes. This router absorbs the job of the extension's old
-Node proxy so there is ONE backend at :8787 for both the extension and the portal.
+The Chrome extension "Saathi" (Team A + B) posts to these paths. Both the current
+routes (`/speech/stt`, `/speech/tts`, `/llm/chat`) and the earlier routes
+(`/stt`, `/tts`, `/gemini/{model}:generateContent`) are served, so the extension
+works regardless of which version of its code is in play.
 
-Shapes are deliberately NOT wrapped in the ApiEnvelope — the extension's
-providers read the raw vendor shapes (text/detectedLang, audios[], candidates[]).
+Shapes are deliberately NOT wrapped in the ApiEnvelope — the extension parses the
+raw vendor shapes (text/detectedLang, audios[], candidates[]).
 """
 
 import httpx
@@ -16,9 +17,15 @@ from app import config
 
 router = APIRouter()
 
+MOCK_GEMINI_RESPONSE = {
+    "candidates": [{"content": {"parts": [{"text": "{}"}]}}],
+    "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
+}
+
 
 # ---- STT (Sarvam Saaras v4). Extension reads { text, detectedLang }. ----
 @router.post("/stt")
+@router.post("/speech/stt")
 async def stt(request: Request):
     if config.MOCK_MODE:
         return {"text": "vanakkam, my broker has not credited my sale proceeds", "detectedLang": "ta-IN"}
@@ -39,12 +46,13 @@ async def stt(request: Request):
 
     parsed = r.json()
     text = parsed.get("transcript") or parsed.get("text") or ""
-    config.add_spend((5.0 / 3600) * config.STT_RATE_PER_HOUR)  # flat 5s/clip estimate
+    config.add_spend((5.0 / 3600) * config.STT_RATE_PER_HOUR)
     return {"text": text, "detectedLang": "unknown", "spentINR": round(config.spent(), 3)}
 
 
 # ---- TTS (Sarvam Bulbul v3). Passthrough: extension reads { audios: [b64] }. ----
 @router.post("/tts")
+@router.post("/speech/tts")
 async def tts(payload: dict = Body(...)):
     if config.MOCK_MODE:
         return {"audios": [""]}
@@ -68,20 +76,37 @@ async def tts(payload: dict = Body(...)):
     return Response(content=r.content, media_type="application/json", status_code=r.status_code)
 
 
-# ---- Gemini (conversation). Passthrough: extension reads raw candidates[]. ----
+# ---- Gemini (generic). Body { model, contents, generationConfig? }. ----
+@router.post("/llm/chat")
+async def llm_chat(request: Request):
+    if config.MOCK_MODE:
+        return MOCK_GEMINI_RESPONSE
+
+    if not config.GEMINI_API_KEY:
+        return JSONResponse(status_code=503, content={"error": "GEMINI_API_KEY not set"})
+
+    payload = await request.json()
+    model = payload.get("model", "gemini-2.5-flash")
+    payload.pop("model", None)
+    async with httpx.AsyncClient(timeout=90) as client:
+        r = await client.post(
+            f"{config.GEMINI_BASE}/models/{model}:generateContent?key={config.GEMINI_API_KEY}",
+            json=payload,
+        )
+    return Response(content=r.content, media_type="application/json", status_code=r.status_code)
+
+
+# ---- Gemini (legacy path form). /gemini/{model}:generateContent ----
 @router.post("/gemini/{path:path}")
 async def gemini(path: str, request: Request):
     if config.MOCK_MODE:
-        return {
-            "candidates": [{"content": {"parts": [{"text": '{"reply":"Namaste.","detectedLanguage":"hi-IN"}'}]}}],
-            "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
-        }
+        return MOCK_GEMINI_RESPONSE
 
     if not config.GEMINI_API_KEY:
         return JSONResponse(status_code=503, content={"error": "GEMINI_API_KEY not set"})
 
     body = await request.body()
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=90) as client:
         r = await client.post(
             f"{config.GEMINI_BASE}/models/{path}",
             headers={"x-goog-api-key": config.GEMINI_API_KEY, "Content-Type": "application/json"},
