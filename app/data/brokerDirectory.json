@@ -1,0 +1,7 @@
+{
+  "note": "Grievance emails must be verified against each broker's policy page. Team A owns the verified entries (their brokerDirectory.json). Unverified entries carry verified:false.",
+  "brokers": [
+    { "name": "Groww", "grievanceEmail": "grievances@groww.in", "verified": false },
+    { "name": "Upstox", "grievanceEmail": "support@upstox.com", "verified": false }
+  ]
+}

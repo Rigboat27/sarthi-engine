@@ -1,0 +1,27 @@
+{
+  "source": "https://scores.sebi.gov.in",
+  "verifiedAt": null,
+  "note": "Exact timelines must be confirmed against sebi.gov.in. Team A owns the verified values (their scoresRules.ts).",
+  "timelines": [
+    {
+      "key": "preFilingContact",
+      "label": "Contact the entity before filing",
+      "value": "required",
+      "source": "https://scores.sebi.gov.in"
+    },
+    {
+      "key": "atrDays",
+      "label": "Action Taken Report due",
+      "value": 21,
+      "verified": false,
+      "source": "https://scores.sebi.gov.in"
+    },
+    {
+      "key": "limitationDays",
+      "label": "Filing limitation from cause of action",
+      "value": 365,
+      "verified": false,
+      "source": "https://scores.sebi.gov.in"
+    }
+  ]
+}
