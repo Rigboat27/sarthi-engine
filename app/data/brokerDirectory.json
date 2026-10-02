@@ -1,7 +1,23 @@
 {
-  "note": "Grievance emails must be verified against each broker's policy page. Team A owns the verified entries (their brokerDirectory.json). Unverified entries carry verified:false.",
+  "$note": "Only VERIFIED grievance addresses go here (checked against each broker's own policy page). If a broker is not listed, clients leave the email 'to' field empty and tell the user to check the broker's website. NEVER invent an address.",
   "brokers": [
-    { "name": "Groww", "grievanceEmail": "grievances@groww.in", "verified": false },
-    { "name": "Upstox", "grievanceEmail": "support@upstox.com", "verified": false }
+    {
+      "id": "groww",
+      "names": ["groww", "groww securities", "nextbilliontechnology"],
+      "email": "compliance@groww.in",
+      "role": "Compliance / Grievance Redressal Officer",
+      "source": "Groww Investor Grievance Redressal Policy (official PDF)",
+      "sourceUrl": "https://resources.groww.in/web-assets/media-library/2026/4/investor-grievance-redressal-policy.pdf",
+      "lastVerified": "2026-10-02"
+    },
+    {
+      "id": "upstox",
+      "names": ["upstox", "rksv", "upstox securities"],
+      "email": "complaints@upstox.com",
+      "role": "Complaints (first level); escalates to compliance@upstox.com",
+      "source": "Upstox Investor Grievances Redressal Mechanism (official PDF)",
+      "sourceUrl": "https://assets.upstox.com/website/Investor+Grievances+Redressal+Mechanism.pdf",
+      "lastVerified": "2026-10-02"
+    }
   ]
 }

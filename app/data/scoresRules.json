@@ -1,27 +1,52 @@
 {
-  "source": "https://scores.sebi.gov.in",
-  "verifiedAt": null,
-  "note": "Exact timelines must be confirmed against sebi.gov.in. Team A owns the verified values (their scoresRules.ts).",
-  "timelines": [
-    {
-      "key": "preFilingContact",
-      "label": "Contact the entity before filing",
-      "value": "required",
-      "source": "https://scores.sebi.gov.in"
-    },
-    {
-      "key": "atrDays",
-      "label": "Action Taken Report due",
-      "value": 21,
-      "verified": false,
-      "source": "https://scores.sebi.gov.in"
-    },
-    {
-      "key": "limitationDays",
-      "label": "Filing limitation from cause of action",
-      "value": 365,
-      "verified": false,
-      "source": "https://scores.sebi.gov.in"
-    }
-  ]
+  "source": "SEBI SCORES (verified by Team A, extension)",
+  "lastVerified": "2026-10-02",
+  "portalUrl": {
+    "value": "https://scores.sebi.gov.in",
+    "source": "SEBI SCORES homepage",
+    "sourceUrl": "https://scores.sebi.gov.in/scores-home",
+    "lastVerified": "2026-10-02"
+  },
+  "helpline": {
+    "value": ["1800 22 7575", "1800 266 7575"],
+    "source": "SEBI investor grievance redressal page",
+    "sourceUrl": "https://investor.sebi.gov.in/securities-resolvedispute.html",
+    "lastVerified": "2026-10-02"
+  },
+  "preFilingEntityWaitDays": {
+    "value": 30,
+    "source": "SEBI circular SEBI/HO/OIAE/IGRD/CIR/P/2023/156 (20 Sep 2023) + SCORES FAQ",
+    "sourceUrl": "https://www.sebi.gov.in/legal/circulars/sep-2023/redressal-of-investor-grievances-through-the-sebi-complaint-redress-scores-platform-and-linking-it-to-online-dispute-resolution-platform_77159.html",
+    "lastVerified": "2026-10-02"
+  },
+  "atrDays": {
+    "value": 21,
+    "source": "SCORES investor FAQ (Action Taken Report within 21 calendar days)",
+    "sourceUrl": "https://scores.sebi.gov.in/scores-home",
+    "lastVerified": "2026-10-02"
+  },
+  "firstReviewDays": {
+    "value": 15,
+    "source": "SCORES FAQ (first review within 15 days of the entity's ATR)",
+    "sourceUrl": "https://scores.sebi.gov.in/scores-home",
+    "lastVerified": "2026-10-02"
+  },
+  "secondReviewDays": {
+    "value": 15,
+    "source": "SCORES FAQ (second review within 15 days of the Designated Body's response)",
+    "sourceUrl": "https://scores.sebi.gov.in/scores-home",
+    "lastVerified": "2026-10-02"
+  },
+  "feedbackDays": {
+    "value": 15,
+    "source": "SCORES FAQ (feedback on closure within 15 days)",
+    "sourceUrl": "https://scores.sebi.gov.in/scores-home",
+    "lastVerified": "2026-10-02"
+  },
+  "limitationDays": {
+    "value": 365,
+    "source": "SEBI circular: lodge within one year of the date of the cause of action",
+    "sourceUrl": "https://www.sebi.gov.in/legal/circulars/sep-2023/redressal-of-investor-grievances-through-the-sebi-complaint-redress-scores-platform-and-linking-it-to-online-dispute-resolution-platform_77159.html",
+    "lastVerified": "2026-10-02"
+  }
 }

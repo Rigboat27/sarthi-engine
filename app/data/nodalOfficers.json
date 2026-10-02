@@ -1,0 +1,29 @@
+{
+  "$note": "Nodal Officer physical addresses are the #1 place IEPF documents get misrouted. Sarthi NEVER invents an address: seeded entries carry company metadata + where to look it up, and must be verified against the company's investor page before anything is mailed.",
+  "companies": [
+    {
+      "name": "Reliance Industries",
+      "ticker": "RELIANCE",
+      "isin": "INE002A01018",
+      "rta": "KFin Technologies",
+      "lookupUrl": "https://www.ril.com/investorrelations",
+      "verified": false
+    },
+    {
+      "name": "Tata Consultancy Services",
+      "ticker": "TCS",
+      "isin": "INE467B01029",
+      "rta": "TSR Consultants",
+      "lookupUrl": "https://www.tcs.com/investor-relations",
+      "verified": false
+    },
+    {
+      "name": "Infosys",
+      "ticker": "INFY",
+      "isin": "INE009A01021",
+      "rta": "KFin Technologies",
+      "lookupUrl": "https://www.infosys.com/investors",
+      "verified": false
+    }
+  ]
+}

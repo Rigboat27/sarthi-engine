@@ -10,7 +10,7 @@ router = APIRouter()
 def health():
     return ok(
         {
-            "version": "0.1.0",
+            "version": "0.2.0",
             "providers": {
                 "sarvam": bool(config.SARVAM_API_KEY),
                 "gemini": bool(config.GEMINI_API_KEY),
@@ -18,5 +18,6 @@ def health():
             },
             "mockMode": config.MOCK_MODE,
             "spendInr": round(config.spent(), 4),
+            "capINR": config.SPEND_CAP_INR,
         }
     )

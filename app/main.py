@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import aa, data, docs, health, llm, speech
+from app.routers import aa, data, docs, health, proxy
 
 app = FastAPI(
     title="Sarthi Core",
@@ -19,8 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(speech.router)
-app.include_router(llm.router)
+app.include_router(proxy.router)
 app.include_router(docs.router)
 app.include_router(aa.router)
 app.include_router(data.router)

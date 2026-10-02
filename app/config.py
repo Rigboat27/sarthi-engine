@@ -16,6 +16,12 @@ GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 # Frugality guard: refuse LLM/speech spend past this many INR (crude estimate).
 SPEND_CAP_INR = float(os.getenv("SPEND_CAP_INR", "100"))
 
+# Spend rates (INR), observed Sarvam pricing — used only for estimates.
+STT_RATE_PER_HOUR = 30.0
+TTS_RATE_PER_10K_CHARS = 30.0
+SARVAM_LLM_IN_PER_1M = 29.28
+SARVAM_LLM_OUT_PER_1M = 73.2
+
 # Simple in-memory spend meter (resets on restart).
 _spend = {"inr": 0.0}
 

@@ -27,5 +27,34 @@ def brokers(name: str | None = None):
     data = json.loads(p.read_text(encoding="utf-8"))
     brokers_list = data.get("brokers", [])
     if name:
-        brokers_list = [b for b in brokers_list if name.lower() in b.get("name", "").lower()]
+        needle = name.lower().strip()
+        brokers_list = [
+            b
+            for b in brokers_list
+            if any(needle in n.lower() or n.lower() in needle for n in b.get("names", []))
+        ]
     return ok({"brokers": brokers_list})
+
+
+@router.get("/nodal")
+def nodal(company: str | None = None):
+    """Route an IEPF claimant to the correct company + RTA (never a guessed address)."""
+    p = DATA_DIR / "nodalOfficers.json"
+    if not p.exists():
+        return JSONResponse(status_code=404, content=fail("nodal officer directory not found"))
+    data = json.loads(p.read_text(encoding="utf-8"))
+    companies = data.get("companies", [])
+    if company:
+        needle = company.lower().strip()
+        companies = [
+            c
+            for c in companies
+            if needle in c.get("name", "").lower() or needle in c.get("ticker", "").lower()
+        ]
+    return ok(
+        {
+            "companies": companies,
+            "warning": "Nodal Officer mailing addresses are not yet verified — "
+            "confirm on the company's investor page before sending physical documents.",
+        }
+    )
