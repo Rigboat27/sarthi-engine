@@ -17,7 +17,7 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app import config
 from app.models.affidavit import Affidavit
@@ -110,6 +110,7 @@ def build_transmission_text(a: Affidavit) -> str:
     )
     lines.append("")
     lines.append("Folio No.     Certificate Nos.     Distinctive Nos.     Shares covered in each certificate")
+    lines.append(f"{a.folioOrDpid or blank}     {a.certificateNos or blank}     {a.distinctiveNos or blank}     {a.numberOfShares or blank}")
     lines.append("")
     lines.append(
         f"2. Shri./Smt. {a.deceasedName or blank} expired intestate on "
@@ -188,7 +189,11 @@ def build_checklist(a: Affidavit) -> list[str]:
 
 
 def render_transmission_pdf(a: Affidavit) -> str:
-    """Render the transmission affidavit to an official-looking PDF."""
+    """Render the transmission affidavit to an official-looking PDF.
+
+    Times New Roman (reportlab's Times family), underlined/centred title,
+    populated folio + heirs tables, verification on its own page, centred notes.
+    """
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -196,22 +201,50 @@ def render_transmission_pdf(a: Affidavit) -> str:
         topMargin=0.7 * inch, bottomMargin=0.7 * inch,
     )
     styles = getSampleStyleSheet()
-    title = ParagraphStyle("t", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=12, alignment=TA_CENTER)
-    heading = ParagraphStyle("h", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=13, leading=16, alignment=TA_CENTER, spaceBefore=6, spaceAfter=10)
-    body = ParagraphStyle("b", parent=styles["Normal"], fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=8)
-    note = ParagraphStyle("n", parent=styles["Normal"], fontSize=8, leading=11, spaceBefore=2)
+
+    ROMAN = "Times-Roman"
+    BOLD = "Times-Bold"
+
+    title = ParagraphStyle("t", parent=styles["Normal"], fontName=BOLD, fontSize=9, leading=12, alignment=TA_CENTER)
+    heading = ParagraphStyle("h", parent=styles["Normal"], fontName=BOLD, fontSize=14, leading=18, alignment=TA_CENTER, spaceBefore=6, spaceAfter=14)
+    body = ParagraphStyle("b", parent=styles["Normal"], fontName=ROMAN, fontSize=10.5, leading=15, alignment=TA_JUSTIFY, spaceAfter=8)
+    sig = ParagraphStyle("s", parent=styles["Normal"], fontName=ROMAN, fontSize=10.5, leading=15, alignment=TA_RIGHT)
+    idb = ParagraphStyle("i", parent=styles["Normal"], fontName=ROMAN, fontSize=10.5, leading=15)
+    note = ParagraphStyle("n", parent=styles["Normal"], fontName=ROMAN, fontSize=8.5, leading=12, alignment=TA_CENTER)
+    note_head = ParagraphStyle("nh", parent=styles["Normal"], fontName=BOLD, fontSize=9, leading=12, alignment=TA_CENTER, spaceBefore=6)
 
     story: list = []
-    story.append(Paragraph(escape(build_title_text()), title))
-    story.append(Spacer(1, 4))
+
+    # 1. centred, underlined, bold title
+    story.append(Paragraph(f"<u>{escape(build_title_text())}</u>", title))
+    story.append(Spacer(1, 6))
+    # 2. "AFFIDAVIT" centred before the contents
     story.append(Paragraph("AFFIDAVIT", heading))
 
-    # intro + points
     story.append(Paragraph(escape(f"I, {a.applicantName or '________'}, {_rel_word(a.relationship)} of ________ aged {a.applicantAge or '________'}, an Indian Inhabitant / NRI presently residing at {a.applicantAddress or '________'}, do hereby solemnly affirm and declare as under:"), body))
     story.append(Paragraph(escape(f"1. That Shri/Smt. {a.deceasedName or '________'}, the deceased, was holding {a.numberOfShares or '________'} equity shares in {a.companyName or '________'} covered under Folio No. {a.folioOrDpid or '________'} and Share Certificate No(s). {a.certificateNos or '________'}, bearing Distinctive Nos. {a.distinctiveNos or '________'} of the face value of Rs. {a.faceValue or '________'}/- each."), body))
+
+    # folio table (populated)
+    folio_rows = [
+        ["Folio No.", "Certificate Nos.", "Distinctive Nos.", "Shares covered in each certificate"],
+        [a.folioOrDpid or "________", a.certificateNos or "________", a.distinctiveNos or "________", a.numberOfShares or "________"],
+    ]
+    ft = Table(folio_rows, colWidths=[1.2 * inch, 1.8 * inch, 1.9 * inch, 1.7 * inch])
+    ft.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), ROMAN),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(ft)
+    story.append(Spacer(1, 10))
+
     story.append(Paragraph(escape(f"2. Shri./Smt. {a.deceasedName or '________'} expired intestate on {a.dateOfDeath or '________'} at {a.placeOfDeath or '________'} leaving behind him/her the following legal heirs :"), body))
 
-    # heirs table
+    # heirs table (proper column spacing)
     heirs = a.familyTree or []
     rows = [["Sr. No.", "Name of the heir", "Age", "Relation with the deceased"]]
     if heirs:
@@ -219,18 +252,18 @@ def render_transmission_pdf(a: Affidavit) -> str:
             rows.append([str(i), m.name, m.age or "—", m.relationship])
     else:
         rows.append(["1", "________", "____", "________"])
-    tbl = Table(rows, colWidths=[0.7 * inch, 2.4 * inch, 0.8 * inch, 1.8 * inch])
-    tbl.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ht = Table(rows, colWidths=[0.7 * inch, 2.4 * inch, 0.8 * inch, 2.5 * inch])
+    ht.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), ROMAN),
+        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.append(tbl)
-    story.append(Spacer(1, 8))
+    story.append(ht)
+    story.append(Spacer(1, 10))
 
     story.append(Paragraph(escape("3. The abovementioned shares were separate and self acquired property of the deceased. According to the law of Intestate Succession applicable to him/her, the person(s) mentioned hereinabove is/are the only heir(s) of the deceased and are entitled to inherit the aforesaid shares held by the deceased."), body))
     story.append(Paragraph(escape(f"4. That the Late Shri/Smt. {a.deceasedName or '________'} has left no other heir than these in paragraph 2 above and the person(s) mentioned therein is/are only his/her legal heir(s)."), body))
@@ -238,26 +271,23 @@ def render_transmission_pdf(a: Affidavit) -> str:
     story.append(Paragraph(escape(f"6. I therefore request the {a.companyName or '________'} to transmit the above shares in my / our name."), body))
     story.append(Paragraph(escape("I am executing this declaration to be submitted to the concerned authorities of the Company."), body))
 
-    story.append(Spacer(1, 6))
-    story.append(Paragraph("VERIFICATION", ParagraphStyle("v", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, spaceAfter=6)))
+    # verification on its own page
+    story.append(PageBreak())
+    story.append(Paragraph("VERIFICATION", ParagraphStyle("v", parent=styles["Normal"], fontName=BOLD, fontSize=11, spaceAfter=10)))
     story.append(Paragraph("I hereby state that whatever is stated herein above are true to the best of my knowledge.", body))
-
-    # signature block
-    sig = ParagraphStyle("s", parent=styles["Normal"], fontSize=10, leading=15, alignment=TA_RIGHT)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 16))
     story.append(Paragraph("Solemnly affirmed at ________", sig))
     story.append(Paragraph("On this ____ day of ________ 20..", sig))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
     story.append(Paragraph("(Signature of the Applicant/s)", sig))
     story.append(Paragraph("Deponent", sig))
-    story.append(Spacer(1, 14))
-
-    idb = ParagraphStyle("i", parent=styles["Normal"], fontSize=10, leading=14)
+    story.append(Spacer(1, 20))
     story.append(Paragraph("Identified by me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Before Me", idb))
     story.append(Paragraph("Advocate&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S.E.O. / Oaths Commissioner / Notary", idb))
 
-    story.append(Spacer(1, 14))
-    story.append(Paragraph("NOTES:", ParagraphStyle("nt", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, spaceBefore=4)))
+    # centred notes
+    story.append(Spacer(1, 18))
+    story.append(Paragraph("NOTES:", note_head))
     for n in [
         "1. Affidavit should be on Non-judicial stamp paper of Rs. 100/-, or duly Franked and duly attested and affirmed by Notary.",
         "2. Please fill up the details as per the documents you are annexing. Please do not just type this format as it is.",
