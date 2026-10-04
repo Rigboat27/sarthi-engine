@@ -33,15 +33,30 @@ def consent(payload: dict = Body(...)):
         return JSONResponse(status_code=400, content=fail("aggregatorId is required"))
 
     cid = f"ca-{uuid.uuid4().hex[:12]}"
-    expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+    now = datetime.now(timezone.utc)
+    expires = (now + timedelta(minutes=15)).isoformat()
     _consents[cid] = {"aggregatorId": aggregator_id, "scopes": scopes, "verified": False}
 
+    # Consent artefact shaped like a real Sahamati/ReBIT AA consent.
     artefact = {
         "consentId": cid,
-        "purpose": "Wealth mapping & nominee check",
-        "purposeCode": "FI-ACCOUNT",
-        "fipTypes": ["DEPOSIT", "INVESTMENTS", "INSURANCE", "PPF"],
-        "expiresAt": expires,
+        "consentStart": now.isoformat(),
+        "consentExpiry": expires,
+        "consentMode": "STORE",
+        "fetchType": "ONETIME",
+        "consentTypes": ["PROFILE", "SUMMARY", "TRANSACTIONS"],
+        "fiTypes": ["DEPOSIT", "TERM-DEPOSIT", "INVESTMENTS", "INSURANCE-POLICIES"],
+        "DataConsumer": {"id": "sarthi-fiu", "type": "FIU"},
+        "Customer": {"id": f"customer-{uuid.uuid4().hex[:8]}"},
+        "Purpose": {
+            "code": "101",
+            "refUri": "https://sarthi.in/consent/purpose",
+            "text": "Wealth mapping & nominee check",
+        },
+        "FIDataRange": {"from": "2025-10-04T00:00:00Z", "to": now.isoformat()},
+        "DataLife": {"unit": "DAY", "value": 1},
+        "Frequency": {"unit": "HOUR", "value": 1},
+        "DataFilter": [],
     }
     return ok({"consentId": cid, "artefact": artefact})
 
@@ -69,4 +84,14 @@ def fetch(payload: dict = Body(...)):
 
     holdings = mock_data.filter_by_scopes(rec["scopes"])
     fips = mock_data.to_fips(holdings)
-    return ok({"consentId": cid, "fips": fips})
+    # Add real-AA metadata (link reference + key material) to each FIP record.
+    for fip in fips:
+        fip["linkRefNumber"] = f"lnk-{uuid.uuid4().hex[:10]}"
+        fip["KeyMaterial"] = {"cryptoAlg": "ECDH", "curve": "Curve25519", "params": "mock"}
+    return ok(
+        {
+            "consentId": cid,
+            "fips": fips,
+            "dataRange": {"from": "2025-10-04T00:00:00Z", "to": datetime.now(timezone.utc).isoformat()},
+        }
+    )

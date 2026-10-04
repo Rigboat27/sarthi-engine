@@ -1,5 +1,5 @@
 {
-  "$note": "Only VERIFIED grievance addresses go here (checked against each broker's own policy page). If a broker is not listed, clients leave the email 'to' field empty and tell the user to check the broker's website. NEVER invent an address.",
+  "$note": "Only VERIFIED addresses are used for pre-filled emails. Entries marked verified=false are placeholders to be confirmed against each broker's own grievance policy page before use. NEVER invent an address.",
   "brokers": [
     {
       "id": "groww",
@@ -8,7 +8,8 @@
       "role": "Compliance / Grievance Redressal Officer",
       "source": "Groww Investor Grievance Redressal Policy (official PDF)",
       "sourceUrl": "https://resources.groww.in/web-assets/media-library/2026/4/investor-grievance-redressal-policy.pdf",
-      "lastVerified": "2026-10-02"
+      "lastVerified": "2026-10-02",
+      "verified": true
     },
     {
       "id": "upstox",
@@ -17,7 +18,108 @@
       "role": "Complaints (first level); escalates to compliance@upstox.com",
       "source": "Upstox Investor Grievances Redressal Mechanism (official PDF)",
       "sourceUrl": "https://assets.upstox.com/website/Investor+Grievances+Redressal+Mechanism.pdf",
-      "lastVerified": "2026-10-02"
+      "lastVerified": "2026-10-02",
+      "verified": true
+    },
+    {
+      "id": "zerodha",
+      "names": ["zerodha"],
+      "email": "support@zerodha.com",
+      "role": "Support / Grievance (first level)",
+      "source": "to be verified against Zerodha grievance policy",
+      "sourceUrl": "https://support.zerodha.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "angel-one",
+      "names": ["angel one", "angel broking"],
+      "email": "complaints@angelone.in",
+      "role": "Complaints / Grievance",
+      "source": "to be verified against Angel One grievance policy",
+      "sourceUrl": "https://www.angelone.in",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "icici-direct",
+      "names": ["icici direct", "icici securities"],
+      "email": "customercare@icicisecurities.com",
+      "role": "Customer care / Grievance",
+      "source": "to be verified against ICICI Securities grievance policy",
+      "sourceUrl": "https://www.icicidirect.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "hdfc-securities",
+      "names": ["hdfc securities", "hdfc sec"],
+      "email": "customercare@hdfcsec.com",
+      "role": "Customer care / Grievance",
+      "source": "to be verified against HDFC Securities grievance policy",
+      "sourceUrl": "https://www.hdfcsec.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "kotak-securities",
+      "names": ["kotak securities"],
+      "email": "service.securities@kotak.com",
+      "role": "Service / Grievance",
+      "source": "to be verified against Kotak Securities grievance policy",
+      "sourceUrl": "https://www.kotaksecurities.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "sharekhan",
+      "names": ["sharekhan", "sharekhan ltd"],
+      "email": "mig@sharekhan.com",
+      "role": "Market Integrity / Grievance",
+      "source": "to be verified against Sharekhan grievance policy",
+      "sourceUrl": "https://www.sharekhan.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "motilal-oswal",
+      "names": ["motilal oswal"],
+      "email": "grievance@motilaloswal.com",
+      "role": "Grievance Redressal",
+      "source": "to be verified against Motilal Oswal grievance policy",
+      "sourceUrl": "https://www.motilaloswal.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "5paisa",
+      "names": ["5paisa", "five paisa"],
+      "email": "grievance@5paisa.com",
+      "role": "Grievance Redressal",
+      "source": "to be verified against 5paisa grievance policy",
+      "sourceUrl": "https://www.5paisa.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "iifl-securities",
+      "names": ["iifl", "iifl securities"],
+      "email": "info@iifl.com",
+      "role": "Customer service / Grievance",
+      "source": "to be verified against IIFL Securities grievance policy",
+      "sourceUrl": "https://www.iiflsecurities.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "geojit",
+      "names": ["geojit", "geojit financial"],
+      "email": "customercare@geojit.com",
+      "role": "Customer care / Grievance",
+      "source": "to be verified against Geojit grievance policy",
+      "sourceUrl": "https://www.geojit.com",
+      "lastVerified": null,
+      "verified": false
     }
   ]
 }
