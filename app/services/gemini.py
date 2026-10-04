@@ -17,6 +17,29 @@ async def generate(model: str, body: dict) -> dict:
         return r.json()
 
 
+async def generate_with_fallback(body: dict, model: str | None = None) -> dict:
+    """Try `model` first (if given), then the configured chain. Returns first success."""
+    chain: list[str] = [model] if model else []
+    chain += [m for m in config.GEMINI_MODELS if m != model]
+    chain = [m for m in chain if m]
+    if not chain:
+        chain = ["gemini-3.5-flash-lite"]
+
+    last_error: Exception | None = None
+    async with httpx.AsyncClient(timeout=90) as client:
+        for m in chain:
+            try:
+                r = await client.post(_url(m), json=body)
+                if r.status_code == 404 or r.status_code == 503:
+                    last_error = RuntimeError(f"{m} -> {r.status_code}")
+                    continue
+                r.raise_for_status()
+                return r.json()
+            except Exception as e:  # noqa: BLE001
+                last_error = e
+    raise last_error or RuntimeError("all Gemini models failed")
+
+
 def extract_text(resp: dict) -> str:
     """Pull the concatenated text out of a Gemini generateContent response."""
     try:

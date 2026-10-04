@@ -30,6 +30,16 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 SARVAM_BASE = "https://api.sarvam.ai"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
+# Gemini model fallback chain (verified Oct 2026 — "gemini-2.5-flash" now 404s).
+GEMINI_MODELS = [
+    m.strip()
+    for m in os.getenv(
+        "GEMINI_MODELS",
+        "gemini-3.5-flash-lite,gemini-flash-lite-latest,gemini-3-flash-preview",
+    ).split(",")
+    if m.strip()
+]
+
 # Frugality guard: refuse LLM/speech spend past this many INR (crude estimate).
 SPEND_CAP_INR = float(os.getenv("SPEND_CAP_INR", "100"))
 

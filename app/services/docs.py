@@ -496,8 +496,7 @@ async def name_affidavit(payload: dict) -> dict:
         return {"affidavitText": text, "pdfBase64": render_pdf(title, text), "mock": True}
 
     prompt = NAME_AFFIDAVIT_PROMPT.format(kycName=kyc, certificateName=cert)
-    resp = await gemini.generate(
-        "gemini-2.5-flash",
+    resp = await gemini.generate_with_fallback(
         {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2},
@@ -540,8 +539,7 @@ async def ocr(kyc_data_url: str, cert_data_url: str) -> dict:
             ],
         }
     ]
-    resp = await gemini.generate(
-        "gemini-2.5-flash",
+    resp = await gemini.generate_with_fallback(
         {
             "contents": contents,
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},

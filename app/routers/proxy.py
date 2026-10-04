@@ -14,6 +14,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, Response
 
 from app import config
+from app.services import gemini
 
 router = APIRouter()
 
@@ -86,14 +87,13 @@ async def llm_chat(request: Request):
         return JSONResponse(status_code=503, content={"error": "GEMINI_API_KEY not set"})
 
     payload = await request.json()
-    model = payload.get("model", "gemini-2.5-flash")
+    model = payload.get("model")
     payload.pop("model", None)
-    async with httpx.AsyncClient(timeout=90) as client:
-        r = await client.post(
-            f"{config.GEMINI_BASE}/models/{model}:generateContent?key={config.GEMINI_API_KEY}",
-            json=payload,
-        )
-    return Response(content=r.content, media_type="application/json", status_code=r.status_code)
+    try:
+        resp = await gemini.generate_with_fallback(payload, model=model)
+        return JSONResponse(content=resp)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": "gemini failed", "detail": str(e)})
 
 
 # ---- Gemini (legacy path form). /gemini/{model}:generateContent ----
