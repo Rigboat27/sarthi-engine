@@ -37,3 +37,11 @@ async def affidavit(payload: dict = Body(...)):
         return ok(await docs_service.affidavit(payload))
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=502, content=fail(str(e), code="affidavit_failed"))
+
+
+@router.post("/name-affidavit")
+async def name_affidavit(payload: dict = Body(...)):
+    try:
+        return ok(await docs_service.name_affidavit(payload))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(status_code=502, content=fail(str(e), code="name_affidavit_failed"))

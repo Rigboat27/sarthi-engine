@@ -5,8 +5,16 @@ Mock fallbacks keep the portal demoable with zero keys. The rapidfuzz text match
 is retained for cheap, deterministic comparison.
 """
 
+import base64
+import io
 import json
 import re
+from html import escape
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate
 
 from app import config
 from app.models.affidavit import Affidavit
@@ -27,6 +35,26 @@ def _parse_json(raw: str) -> dict:
         if m:
             return json.loads(m.group(0))
         raise ValueError("could not parse model output as JSON")
+
+
+def render_pdf(title: str, body: str) -> str:
+    """Render plain text to a real A4 PDF and return it as base64."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        rightMargin=inch,
+        leftMargin=inch,
+        topMargin=inch,
+        bottomMargin=inch,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("AffTitle", parent=styles["Title"], fontSize=16, spaceAfter=16, alignment=1)
+    body_style = ParagraphStyle("AffBody", parent=styles["BodyText"], fontSize=11, leading=17)
+    story = [Paragraph(escape(title), title_style)]
+    story.append(Paragraph("<br/>".join(escape(line) for line in body.split("\n")), body_style))
+    doc.build(story)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 # ---- text match (deterministic, no LLM) ----
@@ -130,14 +158,14 @@ def _affidavit_prompt(a: Affidavit) -> str:
 
 async def affidavit(payload: dict) -> dict:
     aff = Affidavit(**payload)
+    title = "Affidavit for Transmission of Shares"
     if config.MOCK_MODE or not config.GEMINI_API_KEY:
+        text = MOCK_AFFIDAVIT_TEXT.format(deceased=aff.deceasedName, applicant=aff.applicantName)
         return {
             "affidavit": aff.model_dump(),
-            "affidavitText": MOCK_AFFIDAVIT_TEXT.format(
-                deceased=aff.deceasedName, applicant=aff.applicantName
-            ),
+            "affidavitText": text,
             "checklist": MOCK_CHECKLIST,
-            "pdfBase64": None,
+            "pdfBase64": render_pdf(title, text),
             "mock": True,
         }
 
@@ -149,10 +177,56 @@ async def affidavit(payload: dict) -> dict:
         },
     )
     parsed = _parse_json(gemini.extract_text(resp))
+    text = parsed.get("affidavitText", "")
     return {
         "affidavit": aff.model_dump(),
-        "affidavitText": parsed.get("affidavitText", ""),
+        "affidavitText": text,
         "checklist": parsed.get("checklist", []),
-        "pdfBase64": None,
+        "pdfBase64": render_pdf(title, text),
         "mock": False,
     }
+
+
+# ---- name-discrepancy affidavit (IEPF OCR mismatch) ----
+
+NAME_AFFIDAVIT_PROMPT = (
+    "You are a legal document generator for SEBI and IEPF claims in India.\n"
+    'Generate a formal "Affidavit for Name Discrepancy".\n'
+    'The name on the KYC document (Aadhaar/PAN) is: "{kycName}".\n'
+    'The name on the share certificate / dividend warrant is: "{certificateName}".\n'
+    "The claimant asserts that both names refer to the SAME person and the difference is only a spelling/initials variation, not a change of identity.\n"
+    "Write it in plain, formal English, ready to print and notarize.\n"
+    "Return ONLY a raw JSON object: {\"affidavitText\": \"...\"}"
+)
+
+MOCK_NAME_AFFIDAVIT_TEXT = (
+    "AFFIDAVIT FOR NAME DISCREPANCY\n\n"
+    "I, {kyc}, son/daughter of ____, resident of ____, do hereby solemnly affirm and declare:\n"
+    "1. That my name appears as \"{kyc}\" in my KYC records (Aadhaar / PAN).\n"
+    "2. That the same name appears as \"{cert}\" on the relevant share certificate / dividend warrant.\n"
+    "3. That both names refer to one and the same person, namely myself, and the difference is due to a spelling / initials variation.\n"
+    "4. That I make this declaration to enable processing of my IEPF claim.\n\n"
+    "Deponent: {kyc}\nPlace: ____\nDate: ____"
+)
+
+
+async def name_affidavit(payload: dict) -> dict:
+    kyc = payload.get("kycName", "")
+    cert = payload.get("certificateName", "")
+    title = "Affidavit for Name Discrepancy"
+
+    if config.MOCK_MODE or not config.GEMINI_API_KEY:
+        text = MOCK_NAME_AFFIDAVIT_TEXT.format(kyc=kyc, cert=cert)
+        return {"affidavitText": text, "pdfBase64": render_pdf(title, text), "mock": True}
+
+    prompt = NAME_AFFIDAVIT_PROMPT.format(kycName=kyc, certificateName=cert)
+    resp = await gemini.generate(
+        "gemini-2.5-flash",
+        {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.2},
+        },
+    )
+    parsed = _parse_json(gemini.extract_text(resp))
+    text = parsed.get("affidavitText", "")
+    return {"affidavitText": text, "pdfBase64": render_pdf(title, text), "mock": False}
