@@ -19,7 +19,7 @@ HOLDINGS: list[Holding] = [
         value=185400,
         nominee=Nominee(name="Priya Sharma", relationship="Spouse", verified=True),
         detail="Salary account · Bengaluru",
-        fixUrl="https://www.hdfcbank.com/personal/ways-to-bank/nominee",
+        fixUrl="https://www.hdfcbank.com",
     ),
     Holding(
         id="bank-sbi-savings",
@@ -31,7 +31,7 @@ HOLDINGS: list[Holding] = [
         identifier="30012XXXXX8890",
         value=42300,
         detail="Home-town branch · Lucknow",
-        fixUrl="https://retail.onlinesbi.sbi/nominee.html",
+        fixUrl="https://www.onlinesbi.sbi",
     ),
     Holding(
         id="bank-icici-fd",
@@ -44,7 +44,7 @@ HOLDINGS: list[Holding] = [
         value=250000,
         nominee=Nominee(name="Priya Sharma", relationship="Spouse", verified=True),
         detail="Matures Apr 2027",
-        fixUrl="https://www.icicibank.com/nominee",
+        fixUrl="https://www.icicibank.com",
     ),
     Holding(
         id="demat-cdsl",
@@ -56,7 +56,7 @@ HOLDINGS: list[Holding] = [
         identifier="1208XXXXXXXX3318",
         value=612750,
         detail="Via Zerodha · 14 holdings",
-        fixUrl="https://www.cdslindia.com/cas/Nominee.html",
+        fixUrl="https://www.cdslindia.com/Bo/NominationLogin.aspx",
     ),
     Holding(
         id="demat-nsdl",
@@ -69,7 +69,7 @@ HOLDINGS: list[Holding] = [
         value=98000,
         nominee=Nominee(name="Arjun Sharma", relationship="Son", verified=True),
         detail="Via HDFC Securities",
-        fixUrl="https://nsdl.co.in/nominee.php",
+        fixUrl="https://eservices.nsdl.com/instademat-kyc-nomination/",
     ),
     Holding(
         id="mf-cams-1",
@@ -82,7 +82,7 @@ HOLDINGS: list[Holding] = [
         value=305200,
         nominee=Nominee(name="Priya Sharma", relationship="Spouse", verified=True),
         detail="SIP active · ₹5,000/mo",
-        fixUrl="https://www.mfcentral.com",
+        fixUrl="https://www.camsonline.com/Investors/Service-requests/Nomination/Nomination-Opt-in_&_Opt-out",
     ),
     Holding(
         id="mf-kfintech-1",
@@ -94,7 +94,7 @@ HOLDINGS: list[Holding] = [
         identifier="55667788/90",
         value=120000,
         detail="Lock-in ended 2025",
-        fixUrl="https://www.mfcentral.com",
+        fixUrl="https://mfs.kfintech.com/investor/general/NCTNomineeUpdation",
     ),
     Holding(
         id="insurance-lic",
@@ -107,7 +107,7 @@ HOLDINGS: list[Holding] = [
         value=1000000,
         nominee=Nominee(name="Priya Sharma", relationship="Spouse", verified=True),
         detail="Sum assured ₹10L",
-        fixUrl="https://licindia.in/nominee",
+        fixUrl="https://licindia.in",
     ),
     Holding(
         id="ppf-sbi",
@@ -119,7 +119,7 @@ HOLDINGS: list[Holding] = [
         identifier="PPF-XXXX6102",
         value=347800,
         detail="Matures 2032",
-        fixUrl="https://retail.onlinesbi.sbi/nominee.html",
+        fixUrl="https://www.onlinesbi.sbi",
     ),
 ]
 
