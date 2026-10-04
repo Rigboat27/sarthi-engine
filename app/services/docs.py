@@ -212,9 +212,8 @@ def build_transmission_text(a: Affidavit) -> str:
     lines.append("")
     lines.append("NOTES:")
     lines.append("1. Affidavit should be on Non-judicial stamp paper of Rs. 100/-, or duly Franked and duly attested and affirmed by Notary.")
-    lines.append("2. Please fill up the details as per the documents you are annexing. Please do not just type this format as it is.")
-    lines.append("3. It should be executed by the Applicant(s).")
-    lines.append("4. Maximum of only three legal heirs can apply for transmission.")
+    lines.append("2. It should be executed by the Applicant(s).")
+    lines.append("3. Maximum of only three legal heirs can apply for transmission.")
     return "\n".join(lines)
 
 
@@ -356,9 +355,8 @@ def render_transmission_pdf(a: Affidavit) -> str:
     story.append(Paragraph("NOTES:", note_head))
     for n in [
         "1. Affidavit should be on Non-judicial stamp paper of Rs. 100/-, or duly Franked and duly attested and affirmed by Notary.",
-        "2. Please fill up the details as per the documents you are annexing. Please do not just type this format as it is.",
-        "3. It should be executed by the Applicant(s).",
-        "4. Maximum of only three legal heirs can apply for transmission.",
+        "2. It should be executed by the Applicant(s).",
+        "3. Maximum of only three legal heirs can apply for transmission.",
     ]:
         story.append(Paragraph(escape(n), note))
 
