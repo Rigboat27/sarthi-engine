@@ -91,6 +91,7 @@ def fetch(payload: dict = Body(...)):
     return ok(
         {
             "consentId": cid,
+            "ownerName": mock_data.OWNER_NAME,
             "fips": fips,
             "dataRange": {"from": "2025-10-04T00:00:00Z", "to": datetime.now(timezone.utc).isoformat()},
         }

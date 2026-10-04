@@ -7,6 +7,10 @@ routes stay identical).
 
 from app.models.holding import AccountType, Holding, Nominee
 
+# The account holder (customer) whose wealth map this is. A real AA returns this
+# from the Customer/FIP data; we seed it so transmission can pre-fill.
+OWNER_NAME = "Ramesh Sharma"
+
 HOLDINGS: list[Holding] = [
     Holding(
         id="bank-hdfc-savings",
