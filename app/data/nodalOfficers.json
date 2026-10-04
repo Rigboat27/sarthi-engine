@@ -100,6 +100,25 @@
     { "name": "Vedanta", "ticker": "VEDL", "sector": "Metals", "rta": "KFin Technologies" },
     { "name": "NMDC", "ticker": "NMDC", "sector": "Mining", "rta": "Alankit Assignments" },
     { "name": "GAIL (India)", "ticker": "GAIL", "sector": "Gas", "rta": "KFin Technologies" },
-    { "name": "Indraprastha Gas", "ticker": "IGL", "sector": "Gas", "rta": "KFin Technologies" }
+    { "name": "Indraprastha Gas", "ticker": "IGL", "sector": "Gas", "rta": "KFin Technologies" },
+    { "name": "Tata Elxsi", "ticker": "TATAELXSI", "sector": "IT", "rta": "TSR Consultants" },
+    { "name": "L&T Technology Services", "ticker": "LTTS", "sector": "Engineering", "rta": "KFin Technologies" },
+    { "name": "Persistent Systems", "ticker": "PERSISTENT", "sector": "IT", "rta": "KFin Technologies" },
+    { "name": "Coforge", "ticker": "COFORGE", "sector": "IT", "rta": "KFin Technologies" },
+    { "name": "Mphasis", "ticker": "MPHASIS", "sector": "IT", "rta": "KFin Technologies" },
+    { "name": "Biocon", "ticker": "BIOCON", "sector": "Pharma", "rta": "KFin Technologies" },
+    { "name": "Alkem Laboratories", "ticker": "ALKEM", "sector": "Pharma", "rta": "KFin Technologies" },
+    { "name": "Torrent Power", "ticker": "TORNTPOWER", "sector": "Power", "rta": "KFin Technologies" },
+    { "name": "Oberoi Realty", "ticker": "OBEROIRLTY", "sector": "Real Estate", "rta": "KFin Technologies" },
+    { "name": "Prestige Estates", "ticker": "PRESTIGE", "sector": "Real Estate", "rta": "KFin Technologies" },
+    { "name": "Info Edge (Naukri)", "ticker": "NAUKRI", "sector": "Internet", "rta": "KFin Technologies" },
+    { "name": "FSN E-Commerce (Nykaa)", "ticker": "NYKAA", "sector": "Internet", "rta": "KFin Technologies" },
+    { "name": "PB Fintech (PolicyBazaar)", "ticker": "POLICYBZR", "sector": "Internet", "rta": "KFin Technologies" },
+    { "name": "Dixon Technologies", "ticker": "DIXON", "sector": "Electronics", "rta": "KFin Technologies" },
+    { "name": "Voltas", "ticker": "VOLTAS", "sector": "Consumer", "rta": "TSR Consultants" },
+    { "name": "Blue Star", "ticker": "BLUESTARCO", "sector": "Consumer", "rta": "KFin Technologies" },
+    { "name": "Astral", "ticker": "ASTRAL", "sector": "Consumer", "rta": "KFin Technologies" },
+    { "name": "Supreme Industries", "ticker": "SUPREMEIND", "sector": "Plastics", "rta": "KFin Technologies" },
+    { "name": "Bosch", "ticker": "BOSCHLTD", "sector": "Auto", "rta": "KFin Technologies" }
   ]
 }

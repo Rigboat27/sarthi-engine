@@ -120,6 +120,66 @@
       "sourceUrl": "https://www.geojit.com",
       "lastVerified": null,
       "verified": false
+    },
+    {
+      "id": "axis-securities",
+      "names": ["axis securities", "axis direct"],
+      "email": "helpdesk@axisdirect.in",
+      "role": "Helpdesk / Grievance",
+      "source": "to be verified against Axis Securities grievance policy",
+      "sourceUrl": "https://simplehai.axisdirect.in",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "nuvama-wealth",
+      "names": ["nuvama", "nuvama wealth", "edelweiss broking"],
+      "email": "helpdesk@nuvamawealth.com",
+      "role": "Helpdesk / Grievance",
+      "source": "to be verified against Nuvama grievance policy",
+      "sourceUrl": "https://www.nuvamawealth.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "fyers",
+      "names": ["fyers"],
+      "email": "support@fyers.in",
+      "role": "Support / Grievance",
+      "source": "to be verified against Fyers grievance policy",
+      "sourceUrl": "https://fyers.in",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "dhan",
+      "names": ["dhan", "dhan securities"],
+      "email": "support@dhan.co",
+      "role": "Support / Grievance",
+      "source": "to be verified against Dhan grievance policy",
+      "sourceUrl": "https://dhan.co",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "hdfc-sky",
+      "names": ["hdfc sky", "hdfcsky"],
+      "email": "support@hdfcsky.com",
+      "role": "Support / Grievance",
+      "source": "to be verified against HDFC SKY grievance policy",
+      "sourceUrl": "https://hdfcsky.com",
+      "lastVerified": null,
+      "verified": false
+    },
+    {
+      "id": "sbi-securities",
+      "names": ["sbi securities", "sbicap securities"],
+      "email": "support@sbicapsec.com",
+      "role": "Support / Grievance",
+      "source": "to be verified against SBI Securities grievance policy",
+      "sourceUrl": "https://www.sbisecurities.in",
+      "lastVerified": null,
+      "verified": false
     }
   ]
 }
