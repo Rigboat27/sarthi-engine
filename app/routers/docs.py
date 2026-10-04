@@ -32,9 +32,9 @@ def match(payload: dict = Body(...)):
 
 
 @router.post("/affidavit")
-async def affidavit(payload: dict = Body(...)):
+def affidavit(payload: dict = Body(...)):
     try:
-        return ok(await docs_service.affidavit(payload))
+        return ok(docs_service.affidavit(payload))
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=502, content=fail(str(e), code="affidavit_failed"))
 

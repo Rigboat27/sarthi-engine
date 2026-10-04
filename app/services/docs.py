@@ -1,8 +1,9 @@
-"""Doc scanner & legal builder (Team B's domain) — now Gemini-backed.
+"""Doc scanner & legal builder (Team B's domain).
 
-OCR (vision) and affidavit generation run through Gemini via the engine's key.
-Mock fallbacks keep the portal demoable with zero keys. The rapidfuzz text match
-is retained for cheap, deterministic comparison.
+- OCR (Gemini Vision) compares KYC vs certificate names.
+- Affidavits are generated from the official SEBI format (deterministic template,
+  no LLM hallucination) and rendered to a professional PDF.
+- The rapidfuzz text match is retained for cheap, deterministic comparison.
 """
 
 import base64
@@ -11,10 +12,12 @@ import json
 import re
 from html import escape
 
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app import config
 from app.models.affidavit import Affidavit
@@ -37,28 +40,6 @@ def _parse_json(raw: str) -> dict:
         raise ValueError("could not parse model output as JSON")
 
 
-def render_pdf(title: str, body: str) -> str:
-    """Render plain text to a real A4 PDF and return it as base64."""
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        rightMargin=inch,
-        leftMargin=inch,
-        topMargin=inch,
-        bottomMargin=inch,
-    )
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("AffTitle", parent=styles["Title"], fontSize=16, spaceAfter=16, alignment=1)
-    body_style = ParagraphStyle("AffBody", parent=styles["BodyText"], fontSize=11, leading=17)
-    story = [Paragraph(escape(title), title_style)]
-    story.append(Paragraph("<br/>".join(escape(line) for line in body.split("\n")), body_style))
-    doc.build(story)
-    return base64.b64encode(buf.getvalue()).decode("ascii")
-
-
-# ---- text match (deterministic, no LLM) ----
-
 def _ratio(a: str, b: str) -> float:
     if fuzz:
         return fuzz.ratio(a.lower(), b.lower()) / 100.0
@@ -75,119 +56,244 @@ def match(a: str, b: str) -> dict:
     return {"score": round(score, 4), "match": score >= 0.85, "a": a, "b": b}
 
 
-# ---- OCR: compare KYC vs certificate names (Gemini Vision) ----
+def render_pdf(title: str, body: str) -> str:
+    """Render plain text to a simple A4 PDF and return it as base64."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=inch, leftMargin=inch, topMargin=inch, bottomMargin=inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("T", parent=styles["Title"], fontSize=16, spaceAfter=16, alignment=TA_CENTER)
+    body_style = ParagraphStyle("B", parent=styles["BodyText"], fontSize=11, leading=17)
+    story = [Paragraph(escape(title), title_style)]
+    story.append(Paragraph("<br/>".join(escape(line) for line in body.split("\n")), body_style))
+    doc.build(story)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
-OCR_PROMPT = (
-    "You are a strict data extraction bot. I am providing two images.\n"
-    "Image 1 is a KYC Document (Aadhaar, PAN, etc.). Image 2 is a Share Certificate or dividend warrant.\n"
-    "Extract the FULL NAME of the individual from both documents.\n"
-    "Check if the names are an EXACT MATCH (ignoring case, but sensitive to initials, middle names, and spelling).\n"
-    "Return a raw JSON object with no markdown formatting:\n"
-    '{"kycName": "Extracted Name 1", "certificateName": "Extracted Name 2", "isMatch": true/false}'
-)
+
+# ---------------------------------------------------------------------------
+# Transmission affidavit — official SEBI format, deterministic
+# ---------------------------------------------------------------------------
+
+def _rel_word(relationship: str) -> str:
+    r = (relationship or "").lower()
+    if any(w in r for w in ("wife", "spouse", "husband", "पत्नी", "पति")):
+        return "spouse"
+    if "daughter" in r or "बेटी" in r or "மகள்" in r:
+        return "daughter"
+    return "son"
 
 
-async def ocr(kyc_data_url: str, cert_data_url: str) -> dict:
-    if config.MOCK_MODE or not config.GEMINI_API_KEY:
-        return {
-            "kycName": "RAMESH SHARMA",
-            "certificateName": "RAMESH SHARM",
-            "isMatch": False,
-        }
+def build_transmission_text(a: Affidavit) -> str:
+    blank = "________"
+    heirs = a.familyTree or []
+    rel = _rel_word(a.relationship)
 
-    contents = [
-        {
-            "role": "user",
-            "parts": [
-                {"text": OCR_PROMPT},
-                gemini.inline_image(kyc_data_url),
-                gemini.inline_image(cert_data_url),
-            ],
-        }
+    lines: list[str] = []
+    lines.append(
+        "FORMAT OF AFFIDAVIT FOR TRANSMISSION OF SHARES WITHOUT PRODUCING "
+        "PROBATE / SUCCESSION CERTIFICATE / LETTERS OF ADMINISTRATION"
+    )
+    lines.append("")
+    lines.append("AFFIDAVIT")
+    lines.append("")
+    lines.append(
+        f"I, {a.applicantName or blank}, {rel} of {blank} aged {a.applicantAge or blank}, "
+        f"an Indian Inhabitant / NRI presently residing at {a.applicantAddress or blank}, "
+        "do hereby solemnly affirm and declare as under:"
+    )
+    lines.append("")
+    lines.append(
+        f"1. That Shri/Smt. {a.deceasedName or blank}, the deceased, was holding "
+        f"{a.numberOfShares or blank} equity shares in {a.companyName or blank} covered under "
+        f"Folio No. {a.folioOrDpid or blank} and Share Certificate No(s). {a.certificateNos or blank}, "
+        f"bearing Distinctive Nos. {a.distinctiveNos or blank} of the face value of "
+        f"Rs. {a.faceValue or blank}/- each."
+    )
+    lines.append("")
+    lines.append("Folio No.     Certificate Nos.     Distinctive Nos.     Shares covered in each certificate")
+    lines.append("")
+    lines.append(
+        f"2. Shri./Smt. {a.deceasedName or blank} expired intestate on "
+        f"{a.dateOfDeath or blank} at {a.placeOfDeath or blank} leaving behind him/her "
+        "the following legal heirs :"
+    )
+    lines.append("")
+    lines.append("Sr. No.      Name of the heir      Age      Relation with the deceased")
+    if heirs:
+        for i, m in enumerate(heirs, 1):
+            lines.append(f"{i}.           {m.name}      {m.age or blank}      {m.relationship}")
+    else:
+        lines.append("1.           ________      ____      ________")
+    lines.append("")
+    lines.append(
+        "3. The abovementioned shares were separate and self acquired property of the "
+        "deceased. According to the law of Intestate Succession applicable to him/her by "
+        "which he/she was governed at the time of his/her death, the person(s) mentioned "
+        f"hereinabove is/are the only heir(s) of the deceased. They are entitled to inherit "
+        f"the aforesaid shares covered under Folio No. {a.folioOrDpid or blank} held by the deceased."
+    )
+    lines.append("")
+    lines.append(
+        f"4. That the Late Shri/Smt. {a.deceasedName or blank} has left no other heir than "
+        "these in paragraph 2 above and the person(s) mentioned therein is/are only his/her "
+        "legal heir(s)."
+    )
+    lines.append("")
+    lines.append(
+        "5. I have already executed indemnity bond for transmitting the aforesaid shares held "
+        "by the deceased in my name without production of Succession Certificate / Probate of "
+        "Will / Letter of Administration (LoA)."
+    )
+    lines.append("")
+    lines.append(
+        f"6. I therefore request the {a.companyName or blank} to transmit the above shares in "
+        "my / our name."
+    )
+    lines.append("")
+    lines.append("I am executing this declaration to be submitted to the concerned authorities of the Company.")
+    lines.append("")
+    lines.append("VERIFICATION")
+    lines.append("I hereby state that whatever is stated herein above are true to the best of my knowledge.")
+    lines.append("")
+    lines.append(f"Solemnly affirmed at {blank}")
+    lines.append(f"On this {blank} day of {blank} 20..")
+    lines.append("")
+    lines.append("(Signature of the Applicant/s)")
+    lines.append("Deponent")
+    lines.append("")
+    lines.append("Identified by me                      Before Me")
+    lines.append("")
+    lines.append("Advocate                              S.E.O. / Oaths Commissioner / Notary")
+    lines.append("")
+    lines.append("NOTES:")
+    lines.append("1. Affidavit should be on Non-judicial stamp paper of Rs. 100/-, or duly Franked and duly attested and affirmed by Notary.")
+    lines.append("2. Please fill up the details as per the documents you are annexing. Please do not just type this format as it is.")
+    lines.append("3. It should be executed by the Applicant(s).")
+    lines.append("4. Maximum of only three legal heirs can apply for transmission.")
+    return "\n".join(lines)
+
+
+def build_checklist(a: Affidavit) -> list[str]:
+    steps = [
+        "Print this affidavit on ₹100 non-judicial stamp paper (or duly franked).",
+        "Get the affidavit notarized / affirmed before a Notary or Oaths Commissioner.",
     ]
-    resp = await gemini.generate(
-        "gemini-2.5-flash",
-        {
-            "contents": contents,
-            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
-        },
+    for m in a.familyTree or []:
+        steps.append(f"Obtain a signed No-Objection Certificate from {m.name} ({m.relationship}).")
+    steps += [
+        "Fill the RTA's Transmission Request Form and attach an indemnity bond.",
+        "Submit the full packet (affidavit + NOCs + indemnity bond + KYC) to the RTA / DP.",
+        "Track the acknowledgment until the shares are transmitted to your name.",
+    ]
+    return steps
+
+
+def render_transmission_pdf(a: Affidavit) -> str:
+    """Render the transmission affidavit to an official-looking PDF."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        rightMargin=0.75 * inch, leftMargin=0.75 * inch,
+        topMargin=0.7 * inch, bottomMargin=0.7 * inch,
     )
-    return _parse_json(gemini.extract_text(resp))
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle("t", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=12, alignment=TA_CENTER)
+    heading = ParagraphStyle("h", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=13, leading=16, alignment=TA_CENTER, spaceBefore=6, spaceAfter=10)
+    body = ParagraphStyle("b", parent=styles["Normal"], fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=8)
+    note = ParagraphStyle("n", parent=styles["Normal"], fontSize=8, leading=11, spaceBefore=2)
+
+    story: list = []
+    story.append(Paragraph(escape(build_title_text()), title))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("AFFIDAVIT", heading))
+
+    # intro + points
+    story.append(Paragraph(escape(f"I, {a.applicantName or '________'}, {_rel_word(a.relationship)} of ________ aged {a.applicantAge or '________'}, an Indian Inhabitant / NRI presently residing at {a.applicantAddress or '________'}, do hereby solemnly affirm and declare as under:"), body))
+    story.append(Paragraph(escape(f"1. That Shri/Smt. {a.deceasedName or '________'}, the deceased, was holding {a.numberOfShares or '________'} equity shares in {a.companyName or '________'} covered under Folio No. {a.folioOrDpid or '________'} and Share Certificate No(s). {a.certificateNos or '________'}, bearing Distinctive Nos. {a.distinctiveNos or '________'} of the face value of Rs. {a.faceValue or '________'}/- each."), body))
+    story.append(Paragraph(escape(f"2. Shri./Smt. {a.deceasedName or '________'} expired intestate on {a.dateOfDeath or '________'} at {a.placeOfDeath or '________'} leaving behind him/her the following legal heirs :"), body))
+
+    # heirs table
+    heirs = a.familyTree or []
+    rows = [["Sr. No.", "Name of the heir", "Age", "Relation with the deceased"]]
+    if heirs:
+        for i, m in enumerate(heirs, 1):
+            rows.append([str(i), m.name, m.age or "—", m.relationship])
+    else:
+        rows.append(["1", "________", "____", "________"])
+    tbl = Table(rows, colWidths=[0.7 * inch, 2.4 * inch, 0.8 * inch, 1.8 * inch])
+    tbl.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(tbl)
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph(escape("3. The abovementioned shares were separate and self acquired property of the deceased. According to the law of Intestate Succession applicable to him/her, the person(s) mentioned hereinabove is/are the only heir(s) of the deceased and are entitled to inherit the aforesaid shares held by the deceased."), body))
+    story.append(Paragraph(escape(f"4. That the Late Shri/Smt. {a.deceasedName or '________'} has left no other heir than these in paragraph 2 above and the person(s) mentioned therein is/are only his/her legal heir(s)."), body))
+    story.append(Paragraph(escape("5. I have already executed indemnity bond for transmitting the aforesaid shares held by the deceased in my name without production of Succession Certificate / Probate of Will / Letter of Administration (LoA)."), body))
+    story.append(Paragraph(escape(f"6. I therefore request the {a.companyName or '________'} to transmit the above shares in my / our name."), body))
+    story.append(Paragraph(escape("I am executing this declaration to be submitted to the concerned authorities of the Company."), body))
+
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("VERIFICATION", ParagraphStyle("v", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, spaceAfter=6)))
+    story.append(Paragraph("I hereby state that whatever is stated herein above are true to the best of my knowledge.", body))
+
+    # signature block
+    sig = ParagraphStyle("s", parent=styles["Normal"], fontSize=10, leading=15, alignment=TA_RIGHT)
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Solemnly affirmed at ________", sig))
+    story.append(Paragraph("On this ____ day of ________ 20..", sig))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("(Signature of the Applicant/s)", sig))
+    story.append(Paragraph("Deponent", sig))
+    story.append(Spacer(1, 14))
+
+    idb = ParagraphStyle("i", parent=styles["Normal"], fontSize=10, leading=14)
+    story.append(Paragraph("Identified by me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Before Me", idb))
+    story.append(Paragraph("Advocate&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S.E.O. / Oaths Commissioner / Notary", idb))
+
+    story.append(Spacer(1, 14))
+    story.append(Paragraph("NOTES:", ParagraphStyle("nt", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=8, spaceBefore=4)))
+    for n in [
+        "1. Affidavit should be on Non-judicial stamp paper of Rs. 100/-, or duly Franked and duly attested and affirmed by Notary.",
+        "2. Please fill up the details as per the documents you are annexing. Please do not just type this format as it is.",
+        "3. It should be executed by the Applicant(s).",
+        "4. Maximum of only three legal heirs can apply for transmission.",
+    ]:
+        story.append(Paragraph(escape(n), note))
+
+    doc.build(story)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-# ---- affidavit generation (Gemini) ----
-
-MOCK_AFFIDAVIT_TEXT = (
-    "AFFIDAVIT FOR TRANSMISSION OF SHARES\n\n"
-    "I, {applicant}, legal heir of late {deceased}, do hereby solemnly affirm and declare:\n"
-    "1. That {deceased} held the securities described in the transmission request.\n"
-    "2. That {deceased} passed away, leaving the legal heirs listed in the attached family tree.\n"
-    "3. That I am the rightful claimant and there is no dispute among the heirs.\n"
-    "4. That this affidavit is executed to enable transmission of the said securities to my name.\n\n"
-    "Deponent: {applicant}\nPlace: ____\nDate: ____"
-)
-
-MOCK_CHECKLIST = [
-    "Obtain original + attested copies of the death certificate.",
-    "Get No-Objection Certificates signed by every other legal heir.",
-    "Fill the RTA's Transmission Request Form.",
-    "Notarize this affidavit together with KYC documents.",
-    "Submit the packet to the RTA / Depository Participant.",
-    "Track the acknowledgment and follow up until the shares are transmitted.",
-]
-
-
-def _affidavit_prompt(a: Affidavit) -> str:
-    survivors = "None"
-    if a.familyTree:
-        survivors = ", ".join(f"{m.name} ({m.relationship})" for m in a.familyTree)
+def build_title_text() -> str:
     return (
-        "You are a legal document generator copilot for SEBI and IEPF claims in India.\n"
-        'Generate a formal "Affidavit for Transmission of Shares" (or general NOC) based on these facts:\n'
-        f"Deceased Shareholder Name: {a.deceasedName}\n"
-        f"Claimant (Legal Heir) Name: {a.applicantName}\n"
-        f"Relation to Deceased: {a.relationship}\n"
-        f"Other Surviving Family Members: {survivors}\n\n"
-        "Write a professional, standard Indian legal affidavit in plain English.\n"
-        "Also, generate a customized step-by-step to-do list (checklist) for the user explaining exactly what physical actions they must take next "
-        "(e.g. obtaining NOCs from specific family members mentioned, notarizing, sending to the RTA).\n\n"
-        "Return ONLY a raw JSON object with this exact structure (no markdown, no quotes outside JSON):\n"
-        '{"affidavitText": "Full text of the affidavit...", "checklist": ["Step 1", "Step 2"]}'
+        "FORMAT OF AFFIDAVIT FOR TRANSMISSION OF SHARES WITHOUT PRODUCING "
+        "PROBATE / SUCCESSION CERTIFICATE / LETTERS OF ADMINISTRATION"
     )
 
 
-async def affidavit(payload: dict) -> dict:
-    aff = Affidavit(**payload)
-    title = "Affidavit for Transmission of Shares"
-    if config.MOCK_MODE or not config.GEMINI_API_KEY:
-        text = MOCK_AFFIDAVIT_TEXT.format(deceased=aff.deceasedName, applicant=aff.applicantName)
-        return {
-            "affidavit": aff.model_dump(),
-            "affidavitText": text,
-            "checklist": MOCK_CHECKLIST,
-            "pdfBase64": render_pdf(title, text),
-            "mock": True,
-        }
-
-    resp = await gemini.generate(
-        "gemini-2.5-flash",
-        {
-            "contents": [{"role": "user", "parts": [{"text": _affidavit_prompt(aff)}]}],
-            "generationConfig": {"temperature": 0.2},
-        },
-    )
-    parsed = _parse_json(gemini.extract_text(resp))
-    text = parsed.get("affidavitText", "")
+def affidavit(payload: dict) -> dict:
+    """Build the transmission affidavit (deterministic) and render its PDF."""
+    a = Affidavit(**payload)
+    text = build_transmission_text(a)
+    checklist = build_checklist(a)
     return {
-        "affidavit": aff.model_dump(),
+        "affidavit": a.model_dump(),
         "affidavitText": text,
-        "checklist": parsed.get("checklist", []),
-        "pdfBase64": render_pdf(title, text),
+        "checklist": checklist,
+        "pdfBase64": render_transmission_pdf(a),
         "mock": False,
     }
 
 
-# ---- name-discrepancy affidavit (IEPF OCR mismatch) ----
+# ---------------------------------------------------------------------------
+# Name-discrepancy affidavit (IEPF OCR mismatch)
+# ---------------------------------------------------------------------------
 
 NAME_AFFIDAVIT_PROMPT = (
     "You are a legal document generator for SEBI and IEPF claims in India.\n"
@@ -230,3 +336,45 @@ async def name_affidavit(payload: dict) -> dict:
     parsed = _parse_json(gemini.extract_text(resp))
     text = parsed.get("affidavitText", "")
     return {"affidavitText": text, "pdfBase64": render_pdf(title, text), "mock": False}
+
+
+# ---------------------------------------------------------------------------
+# OCR: compare KYC vs certificate names (Gemini Vision)
+# ---------------------------------------------------------------------------
+
+OCR_PROMPT = (
+    "You are a strict data extraction bot. I am providing two images.\n"
+    "Image 1 is a KYC Document (Aadhaar, PAN, etc.). Image 2 is a Share Certificate or dividend warrant.\n"
+    "Extract the FULL NAME of the individual from both documents.\n"
+    "Check if the names are an EXACT MATCH (ignoring case, but sensitive to initials, middle names, and spelling).\n"
+    "Return a raw JSON object with no markdown formatting:\n"
+    '{"kycName": "Extracted Name 1", "certificateName": "Extracted Name 2", "isMatch": true/false}'
+)
+
+
+async def ocr(kyc_data_url: str, cert_data_url: str) -> dict:
+    if config.MOCK_MODE or not config.GEMINI_API_KEY:
+        return {
+            "kycName": "RAMESH SHARMA",
+            "certificateName": "RAMESH SHARM",
+            "isMatch": False,
+        }
+
+    contents = [
+        {
+            "role": "user",
+            "parts": [
+                {"text": OCR_PROMPT},
+                gemini.inline_image(kyc_data_url),
+                gemini.inline_image(cert_data_url),
+            ],
+        }
+    ]
+    resp = await gemini.generate(
+        "gemini-2.5-flash",
+        {
+            "contents": contents,
+            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+        },
+    )
+    return _parse_json(gemini.extract_text(resp))
