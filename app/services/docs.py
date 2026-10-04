@@ -9,7 +9,9 @@
 import base64
 import io
 import json
+import os
 import re
+from datetime import datetime
 from html import escape
 
 from reportlab.lib import colors
@@ -17,6 +19,8 @@ from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app import config
@@ -27,6 +31,36 @@ try:
     from rapidfuzz import fuzz
 except ImportError:  # pragma: no cover
     fuzz = None
+
+
+# ---- Unicode (Devanagari) font for names in PDFs ----
+
+_FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "fonts")
+_DEVA_FONT = "Devanagari"
+_DEVA_BOLD = "Devanagari-Bold"
+
+
+def _register_fonts() -> None:
+    for name, fname in (
+        (_DEVA_FONT, "NotoSansDevanagari-Regular.ttf"),
+        (_DEVA_BOLD, "NotoSansDevanagari-Bold.ttf"),
+    ):
+        path = os.path.join(_FONT_DIR, fname)
+        if os.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont(name, path))
+            except Exception:  # noqa: BLE001
+                pass
+
+
+_register_fonts()
+
+
+def _u(text: str) -> str:
+    """Wrap text in a Devanagari-capable font if it contains non-ASCII, else escape."""
+    if any(ord(c) > 127 for c in text):
+        return f'<font name="{_DEVA_FONT}">{escape(text)}</font>'
+    return escape(text)
 
 
 def _parse_json(raw: str) -> dict:
@@ -73,7 +107,11 @@ def render_pdf(title: str, body: str) -> str:
 # Transmission affidavit — official SEBI format, deterministic
 # ---------------------------------------------------------------------------
 
-def _rel_word(relationship: str) -> str:
+def _rel_word(gender: str | None, relationship: str) -> str:
+    if gender == "male":
+        return "son"
+    if gender == "female":
+        return "daughter"
     r = (relationship or "").lower()
     if any(w in r for w in ("wife", "spouse", "husband", "पत्नी", "पति")):
         return "spouse"
@@ -82,10 +120,17 @@ def _rel_word(relationship: str) -> str:
     return "son"
 
 
+def _parent_name(a: Affidavit) -> str:
+    """Fill the 'son/daughter/spouse of ____' blank (father for child, deceased for spouse)."""
+    if _rel_word(a.gender, a.relationship) == "spouse":
+        return a.deceasedName or "________"
+    return a.fatherName or "________"
+
+
 def build_transmission_text(a: Affidavit) -> str:
     blank = "________"
     heirs = a.familyTree or []
-    rel = _rel_word(a.relationship)
+    rel = _rel_word(a.gender, a.relationship)
 
     lines: list[str] = []
     lines.append(
@@ -96,7 +141,7 @@ def build_transmission_text(a: Affidavit) -> str:
     lines.append("AFFIDAVIT")
     lines.append("")
     lines.append(
-        f"I, {a.applicantName or blank}, {rel} of {blank} aged {a.applicantAge or blank}, "
+        f"I, {a.applicantName or blank}, {rel} of {_parent_name(a)} aged {a.applicantAge or blank}, "
         f"an Indian Inhabitant / NRI presently residing at {a.applicantAddress or blank}, "
         "do hereby solemnly affirm and declare as under:"
     )
@@ -221,8 +266,19 @@ def render_transmission_pdf(a: Affidavit) -> str:
     # 2. "AFFIDAVIT" centred before the contents
     story.append(Paragraph("AFFIDAVIT", heading))
 
-    story.append(Paragraph(escape(f"I, {a.applicantName or '________'}, {_rel_word(a.relationship)} of ________ aged {a.applicantAge or '________'}, an Indian Inhabitant / NRI presently residing at {a.applicantAddress or '________'}, do hereby solemnly affirm and declare as under:"), body))
-    story.append(Paragraph(escape(f"1. That Shri/Smt. {a.deceasedName or '________'}, the deceased, was holding {a.numberOfShares or '________'} equity shares in {a.companyName or '________'} covered under Folio No. {a.folioOrDpid or '________'} and Share Certificate No(s). {a.certificateNos or '________'}, bearing Distinctive Nos. {a.distinctiveNos or '________'} of the face value of Rs. {a.faceValue or '________'}/- each."), body))
+    story.append(Paragraph(
+        f"I, {_u(a.applicantName or '________')}, {_rel_word(a.gender, a.relationship)} of {_u(_parent_name(a))} aged {a.applicantAge or '________'}, "
+        f"an Indian Inhabitant / NRI presently residing at {_u(a.applicantAddress or '________')}, "
+        "do hereby solemnly affirm and declare as under:",
+        body,
+    ))
+    story.append(Paragraph(
+        f"1. That Shri/Smt. {_u(a.deceasedName or '________')}, the deceased, was holding "
+        f"{a.numberOfShares or '________'} equity shares in {_u(a.companyName or '________')} covered under "
+        f"Folio No. {a.folioOrDpid or '________'} and Share Certificate No(s). {a.certificateNos or '________'}, "
+        f"bearing Distinctive Nos. {a.distinctiveNos or '________'} of the face value of Rs. {a.faceValue or '________'}/- each.",
+        body,
+    ))
 
     # folio table (populated)
     folio_rows = [
@@ -242,14 +298,24 @@ def render_transmission_pdf(a: Affidavit) -> str:
     story.append(ft)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph(escape(f"2. Shri./Smt. {a.deceasedName or '________'} expired intestate on {a.dateOfDeath or '________'} at {a.placeOfDeath or '________'} leaving behind him/her the following legal heirs :"), body))
+    story.append(Paragraph(
+        f"2. Shri./Smt. {_u(a.deceasedName or '________')} expired intestate on "
+        f"{a.dateOfDeath or '________'} at {_u(a.placeOfDeath or '________')} leaving behind him/her the following legal heirs :",
+        body,
+    ))
 
     # heirs table (proper column spacing)
     heirs = a.familyTree or []
+    cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontName=ROMAN, fontSize=9.5, leading=12)
     rows = [["Sr. No.", "Name of the heir", "Age", "Relation with the deceased"]]
     if heirs:
         for i, m in enumerate(heirs, 1):
-            rows.append([str(i), m.name, m.age or "—", m.relationship])
+            rows.append([
+                str(i),
+                Paragraph(_u(m.name), cell_style),
+                m.age or "—",
+                Paragraph(_u(m.relationship), cell_style),
+            ])
     else:
         rows.append(["1", "________", "____", "________"])
     ht = Table(rows, colWidths=[0.7 * inch, 2.4 * inch, 0.8 * inch, 2.5 * inch])
@@ -266,9 +332,9 @@ def render_transmission_pdf(a: Affidavit) -> str:
     story.append(Spacer(1, 10))
 
     story.append(Paragraph(escape("3. The abovementioned shares were separate and self acquired property of the deceased. According to the law of Intestate Succession applicable to him/her, the person(s) mentioned hereinabove is/are the only heir(s) of the deceased and are entitled to inherit the aforesaid shares held by the deceased."), body))
-    story.append(Paragraph(escape(f"4. That the Late Shri/Smt. {a.deceasedName or '________'} has left no other heir than these in paragraph 2 above and the person(s) mentioned therein is/are only his/her legal heir(s)."), body))
+    story.append(Paragraph(f"4. That the Late Shri/Smt. {_u(a.deceasedName or '________')} has left no other heir than these in paragraph 2 above and the person(s) mentioned therein is/are only his/her legal heir(s).", body))
     story.append(Paragraph(escape("5. I have already executed indemnity bond for transmitting the aforesaid shares held by the deceased in my name without production of Succession Certificate / Probate of Will / Letter of Administration (LoA)."), body))
-    story.append(Paragraph(escape(f"6. I therefore request the {a.companyName or '________'} to transmit the above shares in my / our name."), body))
+    story.append(Paragraph(f"6. I therefore request the {_u(a.companyName or '________')} to transmit the above shares in my / our name.", body))
     story.append(Paragraph(escape("I am executing this declaration to be submitted to the concerned authorities of the Company."), body))
 
     # verification on its own page
@@ -305,6 +371,80 @@ def build_title_text() -> str:
         "FORMAT OF AFFIDAVIT FOR TRANSMISSION OF SHARES WITHOUT PRODUCING "
         "PROBATE / SUCCESSION CERTIFICATE / LETTERS OF ADMINISTRATION"
     )
+
+
+def _format_inr(value) -> str:
+    try:
+        return f"₹{float(value):,.0f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def render_vault_pdf(owner: str, accounts: list[dict]) -> str:
+    """Render the Legacy Wealth Vault as an official-looking PDF."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        rightMargin=0.75 * inch, leftMargin=0.75 * inch,
+        topMargin=0.7 * inch, bottomMargin=0.7 * inch,
+    )
+    styles = getSampleStyleSheet()
+    ROMAN = "Times-Roman"
+    BOLD = "Times-Bold"
+
+    title = ParagraphStyle("t", parent=styles["Normal"], fontName=BOLD, fontSize=15, leading=19, alignment=TA_CENTER)
+    sub = ParagraphStyle("s", parent=styles["Normal"], fontName=ROMAN, fontSize=9.5, leading=13, alignment=TA_CENTER, spaceAfter=16)
+    cell = ParagraphStyle("c", parent=styles["Normal"], fontName=ROMAN, fontSize=9, leading=12)
+    note = ParagraphStyle("n", parent=styles["Normal"], fontName=ROMAN, fontSize=8.5, leading=12, alignment=TA_CENTER, spaceBefore=14)
+
+    story: list = []
+    story.append(Paragraph("SARTHI VIRAASAT", title))
+    story.append(Paragraph("LEGACY WEALTH VAULT", title))
+    story.append(Paragraph(
+        f"Account Holder: {_u(owner)} &nbsp;·&nbsp; Generated on {datetime.now().strftime('%d %B %Y')} &nbsp;·&nbsp; "
+        f"{len(accounts)} accounts mapped",
+        sub,
+    ))
+
+    rows = [["Sr.", "Provider", "Account", "Nominee", "Approx. Value"]]
+    for i, acc in enumerate(accounts, 1):
+        label = acc.get("label", "")
+        masked = acc.get("maskedNumber")
+        rows.append([
+            str(i),
+            Paragraph(_u(acc.get("provider", "")), cell),
+            f"{label}{' ' + masked if masked else ''}",
+            Paragraph(_u(acc.get("nomineeName") or "NO NOMINEE"), cell),
+            _format_inr(acc.get("value")),
+        ])
+
+    tbl = Table(rows, colWidths=[0.4 * inch, 1.5 * inch, 2.0 * inch, 1.6 * inch, 1.1 * inch])
+    tbl.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), ROMAN),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(tbl)
+
+    story.append(Paragraph(
+        "This Legacy Wealth Vault is a self-declared record of the account holder's "
+        "financial footprint. Share it only with a trusted family member. "
+        "Accounts marked 'NO NOMINEE' need a nominee registered immediately.",
+        note,
+    ))
+
+    doc.build(story)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def vault_pdf(payload: dict) -> dict:
+    owner = payload.get("owner", "Account Holder")
+    accounts = payload.get("accounts", [])
+    return {"pdfBase64": render_vault_pdf(owner, accounts)}
 
 
 def affidavit(payload: dict) -> dict:

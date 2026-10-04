@@ -44,6 +44,15 @@ def nodal(company: str | None = None):
         return JSONResponse(status_code=404, content=fail("nodal officer directory not found"))
     data = json.loads(p.read_text(encoding="utf-8"))
     companies = data.get("companies", [])
+
+    # Public Registrar & Transfer Agent investor-service emails.
+    rta_email = {
+        "KFin Technologies": "einward.ris@kfintech.com",
+        "Link Intime India": "rnt.helpdesk@linkintime.co.in",
+        "TSR Consultants": "tsrd@tsrdarashaw.com",
+        "Alankit Assignments": "investorservices@alankit.com",
+    }
+
     if company:
         needle = company.lower().strip()
         companies = [
@@ -51,10 +60,16 @@ def nodal(company: str | None = None):
             for c in companies
             if needle in c.get("name", "").lower() or needle in c.get("ticker", "").lower()
         ]
+
+    enriched = [
+        {**c, "supportEmail": rta_email.get(c.get("rta", ""))}
+        for c in companies
+    ]
+
     return ok(
         {
-            "companies": companies,
-            "warning": "Nodal Officer mailing addresses are not yet verified — "
-            "confirm on the company's investor page before sending physical documents.",
+            "companies": enriched,
+            "warning": "The Nodal Officer's own mailing address is not yet verified — "
+            "confirm it on the company's investor page before sending physical documents.",
         }
     )

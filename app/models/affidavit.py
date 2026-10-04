@@ -15,6 +15,8 @@ class Affidavit(BaseModel):
     applicantName: str
     relationship: str
     # ---- applicant details ----
+    gender: Optional[str] = None  # "male" | "female"
+    fatherName: Optional[str] = None
     applicantAge: Optional[str] = None
     applicantAddress: Optional[str] = None
     # ---- shareholding ----
